@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>InFlow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            terra: {
+              50: '#FFF8F3',
+              100: '#F7E6CA',
+              200: '#C9A690',
+              300: '#E2725B',
+              400: '#C64837',
+              500: '#F2854B',
+            },
+            ink: {
+              900: '#2D2520',
+              600: '#5C4A42',
+              400: '#8E6F5E',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; background: #FFF8F3; }
+    .serif { font-family: 'Noto Serif SC', serif; }
+    .page { transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+    textarea:focus { outline: none; }
+    ::-webkit-scrollbar { display: none; }
+
+    /* 时间轴渐变 */
+    .timeline-gradient {
+      background: linear-gradient(180deg, #F2854B 0%, #E2725B 50%, #C64837 100%);
+    }
+
+    /* 锤子科技风格卡片 - 暖白色调 */
+    .thought-card {
+      background: #FFFDFB;
+      border-radius: 10px;
+      border: 1px solid rgba(226, 114, 91, 0.08);
+      box-shadow:
+        0 1px 3px rgba(180, 120, 90, 0.03),
+        0 4px 12px rgba(180, 120, 90, 0.04);
+      transition: all 0.2s ease;
+    }
+
+    .thought-card:active {
+      transform: scale(0.985);
+      background: #FFFCF9;
+      box-shadow:
+        0 1px 2px rgba(180, 120, 90, 0.03),
+        0 2px 6px rgba(180, 120, 90, 0.03);
+    }
+
+    /* 时间节点 - 简约 */
+    .time-dot {
+      width: 8px;
+      height: 8px;
+      background: #E2725B;
+      border-radius: 50%;
+    }
+
+    .time-dot-today {
+      width: 10px;
+      height: 10px;
+      box-shadow: 0 0 0 3px rgba(226, 114, 91, 0.12);
+    }
+
+    /* 入场动画 */
+    .slide-in {
+      animation: slideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* 输入框呼吸效果 */
+    .input-breathing:focus-within {
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(226, 114, 91, 0.1); }
+      50% { box-shadow: 0 0 0 6px rgba(226, 114, 91, 0.08); }
+    }
+
+    /* 发送按钮动画 */
+    .send-btn {
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+    }
+
+    .send-btn:active {
+      transform: scale(0.9);
+    }
+
+    /* 波纹效果 */
+    .ripple {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ripple::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(226, 114, 91, 0.3) 0%, transparent 70%);
+      opacity: 0;
+      transform: scale(0);
+      transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+
+    .ripple:active::after {
+      opacity: 1;
+      transform: scale(2);
+    }
+
+    /* 统计数字动画 */
+    .stat-number {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 渐变文字 */
+    .gradient-text {
+      background: linear-gradient(135deg, #E2725B 0%, #C64837 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  </style>
+</head>
+<body class="text-ink-900 antialiased">
+  <div class="min-h-screen max-w-md mx-auto relative overflow-hidden">
+
+    <!-- ========== Main Page ========== -->
+    <div id="mainPage" class="absolute inset-0 flex flex-col page">
+
+      <!-- Header - 极简 -->
+      <header class="bg-terra-50 flex items-center justify-between px-5 h-14 border-b border-ink-900/[0.04]">
+        <h1 class="text-lg font-semibold text-ink-900 tracking-wider">InFlow</h1>
+        <button onclick="showStats()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-ink-900/[0.04] transition-colors active:scale-95">
+          <svg class="w-5 h-5 text-ink-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+          </svg>
+        </button>
+      </header>
+
+      <!-- Timeline Content -->
+      <main id="chat" class="flex-1 overflow-y-auto px-5 py-6 relative">
+        <!-- 时间轴线 - 极细 -->
+        <div class="absolute left-[22px] top-6 bottom-6 w-[1px] bg-terra-200/40"></div>
+
+        <div class="space-y-5 relative">
+
+          <!-- 今天 -->
+          <div class="flex items-center gap-3">
+            <div class="time-dot time-dot-today"></div>
+            <span class="text-[13px] font-medium text-ink-600 tracking-wide">今天</span>
+          </div>
+
+          <div class="pl-8 space-y-3">
+            <div class="thought-card px-4 py-3.5 slide-in">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">突然想到一个关于产品设计的灵感，用户可能更喜欢简洁的界面</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">09:32</p>
+            </div>
+
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">今天的工作效率很高，完成了三个重要任务</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">14:15</p>
+            </div>
+
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">晚上要记得运动，保持健康的生活习惯</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">18:42</p>
+            </div>
+          </div>
+
+          <!-- 昨天 -->
+          <div class="flex items-center gap-3 pt-2">
+            <div class="time-dot"></div>
+            <span class="text-[13px] font-medium text-ink-600 tracking-wide">昨天</span>
+          </div>
+
+          <div class="pl-8 space-y-3">
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">读完了《深度工作》这本书，核心理念是减少浅层工作，专注于有价值的深度任务</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">21:30</p>
+            </div>
+
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">和团队讨论了新功能的实现方案</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">15:20</p>
+            </div>
+          </div>
+
+          <!-- 12月30日 -->
+          <div class="flex items-center gap-3 pt-2">
+            <div class="time-dot"></div>
+            <span class="text-[13px] font-medium text-ink-600 tracking-wide">12月30日</span>
+          </div>
+
+          <div class="pl-8 space-y-3">
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">新年计划：学习一门新语言，坚持每天锻炼</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">22:10</p>
+            </div>
+
+            <div class="thought-card px-4 py-3.5">
+              <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">今天尝试了新的咖啡店，环境很适合工作</p>
+              <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">10:45</p>
+            </div>
+          </div>
+
+          <div class="h-4"></div>
+        </div>
+      </main>
+
+      <!-- Input Bar - 简约暖色 -->
+      <footer class="bg-[#FFFDFB] border-t border-terra-300/10 px-4 py-3">
+        <div class="flex items-end gap-2.5">
+          <div class="flex-1 bg-terra-300/[0.06] rounded-xl transition-all">
+            <textarea
+              id="input"
+              placeholder="记录此刻的想法..."
+              rows="1"
+              class="w-full px-4 py-3 text-[15px] bg-transparent resize-none placeholder:text-ink-400/60 leading-relaxed tracking-wide"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"
+            ></textarea>
+          </div>
+          <button onclick="send()" class="send-btn w-10 h-10 flex items-center justify-center bg-terra-300 text-white rounded-xl shrink-0 hover:bg-terra-400 active:scale-95 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+            </svg>
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ========== Stats Page ========== -->
+    <div id="statsPage" class="absolute inset-0 flex flex-col page translate-x-full bg-terra-50">
+
+      <header class="bg-terra-50/90 backdrop-blur-md flex items-center px-4 h-14 border-b border-terra-100/50">
+        <button onclick="hideStats()" class="flex items-center gap-1 text-terra-300 hover:text-terra-400 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+          </svg>
+          <span class="text-sm font-medium">返回</span>
+        </button>
+        <span class="flex-1 text-center text-base font-semibold text-ink-900 -ml-12 serif">统计</span>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-5 space-y-5">
+
+        <!-- 故事化统计 -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg shadow-terra-300/5">
+          <p class="text-ink-400 text-sm leading-relaxed">在过去 <span class="text-terra-300 font-semibold">42</span> 天里</p>
+          <p class="text-ink-400 text-sm leading-relaxed mt-1">你记录了</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-5xl font-semibold gradient-text stat-number">128</span>
+            <span class="text-ink-400 text-sm">次灵感</span>
+          </div>
+        </div>
+
+        <!-- 数据卡片 -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-white rounded-xl p-4 text-center shadow-md shadow-terra-300/5">
+            <div class="text-2xl font-semibold text-terra-300 stat-number">23</div>
+            <div class="text-xs text-ink-400 mt-1">本周</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 text-center shadow-md shadow-terra-300/5">
+            <div class="text-2xl font-semibold text-terra-300 stat-number">7</div>
+            <div class="text-xs text-ink-400 mt-1">连续天</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 text-center shadow-md shadow-terra-300/5">
+            <div class="text-2xl font-semibold text-terra-300 stat-number">3</div>
+            <div class="text-xs text-ink-400 mt-1">今日</div>
+          </div>
+        </div>
+
+        <!-- 趋势图 -->
+        <div class="bg-white rounded-2xl p-5 shadow-md shadow-terra-300/5">
+          <div class="text-sm font-medium text-ink-600 mb-4 serif">近 7 天趋势</div>
+          <div class="h-36">
+            <canvas id="chart"></canvas>
+          </div>
+        </div>
+
+        <!-- 日历热力图 -->
+        <div class="bg-white rounded-2xl p-5 shadow-md shadow-terra-300/5">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-sm font-medium text-ink-600 serif">1月</span>
+            <div class="flex items-center gap-1 text-[10px] text-ink-400">
+              <span>少</span>
+              <div class="w-3 h-3 rounded bg-terra-50"></div>
+              <div class="w-3 h-3 rounded bg-terra-100"></div>
+              <div class="w-3 h-3 rounded bg-terra-200"></div>
+              <div class="w-3 h-3 rounded bg-terra-300"></div>
+              <span>多</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-7 gap-1.5 text-center text-[10px] text-ink-400 mb-2">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+          </div>
+          <div id="cal" class="grid grid-cols-7 gap-1.5"></div>
+        </div>
+
+        <!-- 活跃时段 -->
+        <div class="bg-white rounded-2xl p-5 shadow-md shadow-terra-300/5">
+          <div class="text-sm font-medium text-ink-600 mb-4 serif">活跃时段</div>
+          <div class="space-y-4">
+            <div class="flex items-center gap-3">
+              <span class="w-8 text-xs text-ink-400">上午</span>
+              <div class="flex-1 h-2.5 bg-terra-50 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-terra-500 to-terra-300" style="width:35%"></div>
+              </div>
+              <span class="w-8 text-xs text-ink-400 text-right">35%</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-8 text-xs text-ink-400">下午</span>
+              <div class="flex-1 h-2.5 bg-terra-50 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-terra-500 to-terra-300" style="width:45%"></div>
+              </div>
+              <span class="w-8 text-xs text-ink-400 text-right">45%</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-8 text-xs text-ink-400">晚上</span>
+              <div class="flex-1 h-2.5 bg-terra-50 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-terra-500 to-terra-300" style="width:20%"></div>
+              </div>
+              <span class="w-8 text-xs text-ink-400 text-right">20%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="h-4"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function send() {
+      const input = document.getElementById('input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chat = document.getElementById('chat');
+      const container = chat.querySelector('.space-y-5');
+      const now = new Date();
+      const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+      const offset = (Math.random() - 0.5) * 10;
+
+      const card = document.createElement('div');
+      card.className = 'thought-card px-4 py-3.5 slide-in';
+      card.innerHTML = `
+        <p class="text-[15px] leading-[1.75] text-ink-900 tracking-wide">${text.replace(/</g,'&lt;')}</p>
+        <p class="mt-2.5 text-[11px] text-ink-400 tracking-wider">${time}</p>
+      `;
+
+      // 找到今天的容器
+      const todaySection = container.querySelector('.pl-8.space-y-3');
+      if (todaySection) {
+        todaySection.prepend(card);
+      }
+
+      input.value = '';
+      input.style.height = 'auto';
+    }
+
+    function showStats() {
+      document.getElementById('mainPage').style.transform = 'translateX(-15%)';
+      document.getElementById('mainPage').style.opacity = '0.4';
+      document.getElementById('statsPage').style.transform = 'translateX(0)';
+      initChart();
+    }
+
+    function hideStats() {
+      document.getElementById('mainPage').style.transform = 'translateX(0)';
+      document.getElementById('mainPage').style.opacity = '1';
+      document.getElementById('statsPage').style.transform = 'translateX(100%)';
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('chart');
+      if (window.c) window.c.destroy();
+
+      const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 150);
+      gradient.addColorStop(0, 'rgba(226, 114, 91, 0.3)');
+      gradient.addColorStop(1, 'rgba(226, 114, 91, 0.02)');
+
+      window.c = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['四', '五', '六', '日', '一', '二', '三'],
+          datasets: [{
+            data: [5, 8, 3, 6, 4, 7, 3],
+            borderColor: '#E2725B',
+            backgroundColor: gradient,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#E2725B',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: { color: '#8E6F5E', font: { size: 11 } }
+            },
+            y: { display: false }
+          },
+          interaction: { intersect: false, mode: 'index' },
+        }
+      });
+    }
+
+    // Calendar
+    const cal = document.getElementById('cal');
+    for (let i = 0; i < 4; i++) cal.innerHTML += '<div class="aspect-square"></div>';
+    for (let d = 1; d <= 31; d++) {
+      const heat = Math.random();
+      let bg, text;
+      if (heat > 0.7) { bg = 'bg-terra-300'; text = 'text-white'; }
+      else if (heat > 0.4) { bg = 'bg-terra-200'; text = 'text-ink-600'; }
+      else if (heat > 0.2) { bg = 'bg-terra-100'; text = 'text-ink-600'; }
+      else { bg = 'bg-terra-50'; text = 'text-ink-400'; }
+
+      const ring = d === 2 ? 'ring-2 ring-terra-300 ring-offset-2' : '';
+      cal.innerHTML += `<div class="aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${bg} ${text} ${ring}">${d}</div>`;
+    }
+  </script>
+</body>
+</html>
