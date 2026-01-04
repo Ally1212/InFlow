@@ -1,0 +1,29 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFB088"/>
+            <stop offset="50%" stop-color="#F2854B"/>
+            <stop offset="100%" stop-color="#E2725B"/>
+        </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <!-- 微信经典气泡 -->
+    <path d="
+        M 280 260
+        H 744
+        C 840 260 860 340 860 400
+        V 580
+        C 860 660 820 710 744 710
+        H 350
+        L 220 830
+        L 250 710
+        C 180 710 164 640 164 580
+        V 400
+        C 164 320 200 260 280 260
+        Z
+    " fill="white"/>
+    <!-- 三个点 -->
+    <circle cx="370" cy="484" r="52" fill="#E2725B"/>
+    <circle cx="512" cy="484" r="52" fill="#E2725B"/>
+    <circle cx="654" cy="484" r="52" fill="#E2725B"/>
+</svg>
